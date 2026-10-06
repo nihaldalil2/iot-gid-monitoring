@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+
+  publisher:
+    build: ./publisher
+    container_name: gid-publisher
+    volumes:
+      - ./logs_input:/logs
+    depends_on:
+      - mosquitto
+    restart: always
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: gid-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+    restart: always
+
+  telegraf:
+    image: telegraf:1.28
+    container_name: gid-telegraf
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf
+    depends_on:
+      - mosquitto
+      - influxdb
+    restart: always
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: gid-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=Iot12345
+      - DOCKER_INFLUXDB_INIT_ORG=tgr
+      - DOCKER_INFLUXDB_INIT_BUCKET=jenkins_events
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=gid-secret-token
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    restart: always
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: gid-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=Iot12345
+      - GF_SECURITY_ADMIN_USER=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - influxdb
+    restart: always
+
+volumes:
+  mosquitto_data:
+  influxdb_data:
+  grafana_data:
